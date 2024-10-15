@@ -7,7 +7,7 @@ import os
 
 # *** Initial setup *** #
 
-def create_folders(leagues=['NBA','NCAAB']):
+def create_folders(leagues=['NBA','NCAAMB','NCAAWB']):
     """
     Function to create directory structure for scraped data on game odds and outcomes
 
@@ -322,13 +322,93 @@ def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=30,f
 
             result_list.append(current_odds)
 
-    odds_df = pd.concat(result_list)
+    if len(result_list) > 0:
 
-    # Harmonize team names
-    odds_df['home_team'] = odds_df['home_team'].apply(harmonize_nba_team_names)
-    odds_df['away_team'] = odds_df['away_team'].apply(harmonize_nba_team_names)
+        odds_df = pd.concat(result_list)
 
-    # Drop games that have already started
-    odds_df = odds_df[odds_df['game_datetime'] > odds_df['observation_datetime']].reset_index(drop=True)
+        # Harmonize team names
+        odds_df['home_team'] = odds_df['home_team'].apply(harmonize_nba_team_names)
+        odds_df['away_team'] = odds_df['away_team'].apply(harmonize_nba_team_names)
 
-    return(odds_df)
+        # Drop games that have already started
+        odds_df = odds_df[odds_df['game_datetime'] > odds_df['observation_datetime']].reset_index(drop=True)
+
+        return odds_df
+
+    else:
+
+        return None
+
+# *** NCAA Division I Mens Basketball Odds *** #
+
+def scrape_NCAAMB_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=30,failure_limit=5):
+
+    """
+    Scraper to pull data on live NCAAMB odds from ActionNetwork
+
+    param: proxypool: pool of proxies to route requests through
+    param: sleep_seconds: number of seconds to wait in between api queries
+    param: random_pause: total seconds between queries = sleep_seconds + uniform[0,random_pause]
+    param: days_ahead: number of days in advance to check for newly released odds
+    param: failure_limit: number of times to reattempt scraping if initial request fails
+    """
+
+    dist = stats.uniform(0,random_pause)
+
+    start_date = pd.Timestamp.now(tz='America/New_York')
+    end_date = start_date + pd.Timedelta(days=days_ahead)
+    query_dates = [x.strftime('%Y%m%d') for x in pd.date_range(start_date,end_date,freq='D')]
+
+    result_list = []
+
+    for query_date in query_dates:
+
+        url = f'https://api.actionnetwork.com/web/v2/scoreboard/ncaab?bookIds=15,30,2889,3120,3118,2890,2888,2887,2891,75,123&division=D1&date={query_date}&tournament=0&periods=event'
+
+        headers = {'Accept': '*/*',
+                   'Accept-Encoding': 'gzip, deflate, br',
+                   'Accept-Language': 'en-US,en;q=0.9',
+                   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+                  }
+
+        num_failures=0
+
+        while num_failures < failure_limit:
+
+            res = requests.get(url,headers=headers,proxies=proxypool.random_proxy())
+            time.sleep(sleep_seconds + dist.rvs())
+
+            if res.ok:
+                results_dict = res.json()
+                observation_datetime = pd.Timestamp.now(tz='America/New_York')
+                success = True
+                break
+            else:
+                num_failures += 1
+
+
+        if success and len(results_dict['games']) > 0:
+
+            current_odds_list = []
+
+            for game in results_dict['games']:
+
+                current_odds_list.append(extract_game_information(game))
+
+            current_odds = pd.concat(current_odds_list)
+            current_odds.insert(0, 'observation_datetime', observation_datetime)
+
+            result_list.append(current_odds)
+
+    if len(result_list) > 0:
+
+        odds_df = pd.concat(result_list)
+
+        # Drop games that have already started
+        odds_df = odds_df[odds_df['game_datetime'] > odds_df['observation_datetime']].reset_index(drop=True)
+
+        return odds_df
+
+    else:
+
+        return None
