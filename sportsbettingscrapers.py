@@ -72,7 +72,7 @@ class ProxyPool:
         n_start = self.num_proxies
 
         for proxy in self.proxy_list:
-                        
+
             try:
                 res = requests.get(url,proxies=proxy)
                 working_proxies.append(proxy)
@@ -99,22 +99,22 @@ class ProxyPool:
         proxy = self.proxy_list[self.random_index()]
 
         return(proxy)
-    
-    
+
+
 # *** Helper functions to parse data scraped from Action Network *** #
 
 def extract_game_information(game):
-    """    
+    """
     param: game: dictionary of odds information for specific event
     """
-    
+
     # Get start time of match
     start_time = pd.to_datetime(game['start_time']).tz_convert('America/New_York')
-    
+
     # Get names/abbreviations of each team
     ht_id = game['home_team_id']
     at_id = game['away_team_id']
-    
+
     if game['teams'][0]['id'] == ht_id:
         ht_name = game['teams'][0]['full_name']
         at_name = game['teams'][1]['full_name']
@@ -125,7 +125,7 @@ def extract_game_information(game):
         at_name = game['teams'][0]['full_name']
         ht_abbr = game['teams'][1]['abbr']
         at_abbr = game['teams'][0]['abbr']
-        
+
     book_id_list = []
     book_name_list = []
     moneyline_home_odds_list = []
@@ -138,9 +138,9 @@ def extract_game_information(game):
     under_value_list = []
     over_odds_list = []
     under_odds_list = []
-    
+
     # Dicionary of sportsbook names/ids
-    book_id_names = {'15':pd.NA, 
+    book_id_names = {'15':pd.NA,
                      '30':pd.NA,
                      '75':'BetMGM NJ',
                      '123':'Caesars NJ',
@@ -151,33 +151,31 @@ def extract_game_information(game):
                      '3118':'DraftKings NC',
                      '3120':'Caesars NC',
                      '2891':'Bet365 NC'}
-    
-    
+
+
     for book_id in game['markets'].keys():
-        
+
         if book_id in book_id_names.keys():
             book_name = book_id_names[book_id]
         else:
             book_name = pd.NA
-        
+
         book = game['markets'][book_id]['event']
-        bet_types = list(book.keys())
 
         # Get information on moneyline bet odds
-        
-        if 'moneyline' in bet_types:
+        try:
             if book['moneyline'][0]['team_id'] == ht_id:
                 moneyline_home_odds = book['moneyline'][0]['odds']
                 moneyline_away_odds = book['moneyline'][1]['odds']
             else:
                 moneyline_home_odds = book['moneyline'][1]['odds']
                 moneyline_away_odds = book['moneyline'][0]['odds']
-        else:
+        except:
             moneyline_home_odds = pd.NA
             moneyline_away_odds = pd.NA
-            
+
         # Get information on spread bet odds
-        if 'spread' in bet_types:
+        try:
             if book['spread'][0]['team_id'] == ht_id:
                 spread_home_value = book['spread'][0]['value']
                 spread_home_odds = book['spread'][0]['odds']
@@ -189,15 +187,15 @@ def extract_game_information(game):
                 spread_home_odds = book['spread'][1]['odds']
                 spread_away_value = book['spread'][0]['value']
                 spread_away_odds = book['spread'][0]['odds']
-        else:
+        except:
             spread_home_value = pd.NA
             spread_home_odds = pd.NA
             spread_away_value = pd.NA
             spread_away_odds = pd.NA
-            
-            
+
+
         # Get information on over/under bet odds
-        if 'total' in bet_types:
+        try:
             if book['total'][0]['side'] == 'over':
                 over_value = book['total'][0]['value']
                 over_odds = book['total'][0]['odds']
@@ -208,12 +206,12 @@ def extract_game_information(game):
                 over_odds = book['total'][1]['odds']
                 under_value = book['total'][0]['value']
                 under_odds = book['total'][0]['odds']
-        else:
+        except:
             over_value = pd.NA
             over_odds = pd.NA
             under_value = pd.NA
             under_odds = pd.NA
-            
+
         book_id_list.append(book_id)
         book_name_list.append(book_name)
         moneyline_home_odds_list.append(moneyline_home_odds)
@@ -226,7 +224,7 @@ def extract_game_information(game):
         under_value_list.append(under_value)
         over_odds_list.append(over_odds)
         under_odds_list.append(under_odds)
-            
+
     data = {'game_datetime':start_time,
             'game_date':pd.NA,
             'home_team':ht_name,
@@ -245,19 +243,19 @@ def extract_game_information(game):
             'under_value':under_value_list,
             'over_odds':over_odds_list,
             'under_odds':under_odds_list}
-    
+
     df = pd.DataFrame(data)
     df['game_date'] = pd.to_datetime(df['game_datetime'].dt.date)
-    
+
     return(df)
 
 def harmonize_nba_team_names(x):
     """
     This function converts team names used by sportsbooks to the official names used by the NBA
     """
-    
+
     name_dict = {'Los Angeles Clippers':'LA Clippers'}
-    
+
     if x in name_dict.keys():
         return(name_dict[x])
     else:
@@ -276,7 +274,7 @@ def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=30,f
     param: days_ahead: number of days in advance to check for newly released odds
     param: failure_limit: number of times to reattempt scraping if initial request fails
     """
-    
+
     dist = stats.uniform(0,random_pause)
 
     start_date = pd.Timestamp.now(tz='America/New_York')
@@ -285,7 +283,7 @@ def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=30,f
 
     result_list = []
 
-    for query_date in query_dates:    
+    for query_date in query_dates:
 
         url = f'https://api.actionnetwork.com/web/v2/scoreboard/nba?bookIds=15,30,2889,3120,3118,2890,2888,2887,2891,75,123&date={query_date}&periods=event'
 
@@ -325,12 +323,12 @@ def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=30,f
             result_list.append(current_odds)
 
     odds_df = pd.concat(result_list)
-    
+
     # Harmonize team names
     odds_df['home_team'] = odds_df['home_team'].apply(harmonize_nba_team_names)
     odds_df['away_team'] = odds_df['away_team'].apply(harmonize_nba_team_names)
-    
+
     # Drop games that have already started
     odds_df = odds_df[odds_df['game_datetime'] > odds_df['observation_datetime']].reset_index(drop=True)
-    
+
     return(odds_df)
