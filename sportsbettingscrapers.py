@@ -333,10 +333,12 @@ def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=30,f
         # Drop games that have already started
         odds_df = odds_df[odds_df['game_datetime'] > odds_df['observation_datetime']].reset_index(drop=True)
 
-        return odds_df
+        if len(odds_df) > 0:
+            return odds_df
+        else:
+            return None
 
     else:
-
         return None
 
 # *** NCAA Division I Mens Basketball Odds *** #
@@ -407,8 +409,10 @@ def scrape_NCAAMB_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3
         # Drop games that have already started
         odds_df = odds_df[odds_df['game_datetime'] > odds_df['observation_datetime']].reset_index(drop=True)
 
-        return odds_df
+        if len(odds_df) > 0:
+            return odds_df
+        else:
+            return None
 
     else:
-
         return None
