@@ -263,7 +263,7 @@ def harmonize_nba_team_names(x):
 
 # *** National Baseketball Association (NBA) Odds *** #
 
-def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=30,failure_limit=5):
+def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3,failure_limit=5):
 
     """
     Scraper to pull data on live NBA odds from ActionNetwork
@@ -343,7 +343,7 @@ def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=30,f
 
 # *** NCAA Division I Mens Basketball Odds *** #
 
-def scrape_NCAAMB_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=30,failure_limit=5):
+def scrape_NCAAMB_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3,failure_limit=5):
 
     """
     Scraper to pull data on live NCAAMB odds from ActionNetwork
