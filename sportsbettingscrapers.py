@@ -249,6 +249,8 @@ def extract_game_information(game):
 
     return(df)
 
+# *** National Baseketball Association (NBA) *** #
+
 def harmonize_nba_team_names(x):
     """
     This function converts team names used by sportsbooks to the official names used by the NBA
@@ -260,8 +262,6 @@ def harmonize_nba_team_names(x):
         return(name_dict[x])
     else:
         return(x)
-
-# *** National Baseketball Association (NBA) Odds *** #
 
 def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3,failure_limit=5):
 
@@ -341,7 +341,106 @@ def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3,fa
     else:
         return None
 
-# *** NCAA Division I Mens Basketball Odds *** #
+def scrape_NBA_scores(proxypool,start_year=2023,sleep_seconds=0.5):
+    """
+    Scraper to pull data on live NBA odds from stats.nba.com
+
+    param: proxypool: pool of proxies to route requests through
+    param: start_year: Earliest NBA season for which to pull game score information
+    param: sleep_seconds: number of seconds to wait in between api queries
+    """
+
+    curr_date = pd.Timestamp.today()
+    curr_year = curr_date.year
+    curr_month = curr_date.month
+
+    if curr_month < 10:
+        end_year = curr_year
+    else:
+        end_year = curr_year + 1
+
+    seasons = [f'{year}-{str(year+1)[-2:]}' for year in np.arange(start_year,end_year)]
+
+    periods = ['Pre Season', 'Regular Season', 'Playoffs']
+
+    score_df_list = []
+
+    for season in seasons:
+
+        for period in periods:
+
+            print(season,period,flush=True)
+
+            params = {'DateFrom': '',
+                      'DateTo': '',
+                      'GameSegment': '',
+                      'LastNGames': 0,
+                      'LeagueID': '00',
+                      'Location': '',
+                      'MeasureType': 'Base',
+                      'Month': 0,
+                      'OppTeamID': 0,
+                      'Outcome': '',
+                      'PORound': 0,
+                      'PerMode': 'Totals',
+                      'Period': 0,
+                      'PlayerID': '',
+                      'SeasonSegment': '',
+                      'SeasonType': period,
+                      'Season': season,
+                      'ShotClockRange': '',
+                      'TeamID': '',
+                      'VsConference': '',
+                      'VsDivision': ''}
+
+            headers = {'Accept': '*/*',
+                       'Accept-Encoding': 'gzip, deflate, br',
+                       'Accept-Language': 'en-US,en;q=0.9',
+                       'Host': 'stats.nba.com',
+                       'Origin': 'https://www.nba.com',
+                       'Referer': 'https://www.nba.com/',
+                       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+                      }
+
+            res = requests.get('https://stats.nba.com/stats/teamgamelogs',headers=headers,params=params,proxies=proxypool.random_proxy())
+            time.sleep(sleep_seconds)
+
+            results_dict = res.json()
+
+            if len(results_dict['resultSets'][0]['rowSet']) > 0:
+
+                score_df_list.append(extract_NBA_scores(results_dict))
+
+    score_df = pd.concat(score_df_list).reset_index(drop=True)
+
+    return(score_df)
+
+def extract_NBA_scores(results_dict):
+
+    """
+    Helper function to process game score information scraped from stats.nba.com
+
+    param:
+    """
+
+    df = pd.DataFrame(results_dict['resultSets'][0]['rowSet'],columns=results_dict['resultSets'][0]['headers'])
+
+    df['GAME_DATE'] = pd.to_datetime(df['GAME_DATE'])
+    df = df[['GAME_ID','TEAM_ABBREVIATION','TEAM_NAME','GAME_DATE','MATCHUP','WL','PTS']].sort_values(by=['GAME_DATE','GAME_ID'])
+    df['HOME_FLAG'] = df['MATCHUP'].apply(lambda x: 'vs.' in x)
+
+    home_df = df[df['HOME_FLAG']][['GAME_ID','TEAM_NAME','TEAM_ABBREVIATION','GAME_DATE','PTS']]
+    home_df = home_df.rename(columns={'TEAM_NAME':'home_team','TEAM_ABBREVIATION':'home_abbr','GAME_DATE':'game_date','PTS':'home_score'})
+
+    away_df = df[~df['HOME_FLAG']][['GAME_ID','TEAM_NAME','TEAM_ABBREVIATION','GAME_DATE','PTS']]
+    away_df = away_df.rename(columns={'TEAM_NAME':'away_team','TEAM_ABBREVIATION':'away_abbr','GAME_DATE':'game_date','PTS':'away_score'})
+
+    gamelevel_df = pd.merge(home_df,away_df,how='inner',on=['game_date','GAME_ID'])
+    gamelevel_df = gamelevel_df.drop(columns='GAME_ID')[['game_date','home_team','away_team','home_abbr','away_abbr','home_score','away_score']]
+
+    return(gamelevel_df)
+
+# *** NCAA Division I Mens Basketball *** #
 
 def scrape_NCAAMB_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3,failure_limit=5):
 
