@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.stats as stats
+import scipy.optimize as so
 import pandas as pd
 import requests
 import time
@@ -20,7 +21,10 @@ def create_folders(leagues=['NBA','NCAAMB','NCAAWB']):
 
     for league in leagues:
         folders_to_create.append(f'data/odds/{league}')
+        folders_to_create.append(f'data/prob/{league}')
+        folders_to_create.append(f'data/returns/{league}')
         folders_to_create.append(f'data/scores/{league}')
+        folders_to_create.append(f'data/weights/{league}')
 
     for folder in folders_to_create:
         folderpath = os.path.join(pwd,folder)
@@ -28,6 +32,68 @@ def create_folders(leagues=['NBA','NCAAMB','NCAAWB']):
             os.makedirs(folderpath,exist_ok=True)
 
     return(None)
+
+# *** Functions to calculate odds-implied probability *** #
+
+def convert_american_to_decimal(american_odds):
+    """
+    Helper function to convert American odds into decimal odds
+    (i.e., dollars paid out per dollar wagered in a winning bet)
+    """
+
+    if american_odds < 0: # Negative odds (e.g., bet $110 to make $100)
+        decimal_odds = 1 + 100/np.abs(american_odds)
+
+    else: # Positive odds (e.g., bet $100 to make $110)
+        decimal_odds = 1 + american_odds/100
+
+    return(decimal_odds)
+
+def convert_decimal_to_american(decimal_odds):
+    """
+    Helper function to convert decimal odds into American odds
+    """
+
+    if decimal_odds >= 2.0:
+        american_odds = 100*(decimal_odds-1)
+    else:
+        american_odds = -100/(decimal_odds-1)
+
+    return(american_odds)
+
+def calculate_implied_probability(decimal_odds):
+    """
+    Calculate the implied probability of each event after removing vig using power method.
+
+    See following articles:
+    https://researchbank.swinburne.edu.au/file/2069085d-5d5a-4f9c-9f1c-0c52472396cb/1/PDF%20(Published%20version).pdf
+    https://pdfs.semanticscholar.org/713d/3cb2e10dec3183ea5feced45bb11097fe702.pdf
+
+    param: decimal_odds: numpy array of decimal odds.
+    param: p: implied probability after removing vig.
+    """
+
+    p_book = 1/decimal_odds
+
+    f = lambda k: 1 - np.sum(np.power(p_book,k[:,np.newaxis]),axis=1)
+
+    k_guess = np.ones(p_book.shape[0])
+
+    res = so.root(f,k_guess)
+    k = res.x
+
+    p = np.power(p_book,k[:,np.newaxis])
+
+    return(p)
+
+def calculate_vig(p,q):
+    """
+    param: p: decimal odds of event occurring
+    param: q: decimal odds of event not occurring
+    returns: v: calculated vigorish (i.e., return to bookmaker)
+    """
+    v = 1 - p*q/(p+q)
+    return(v)
 
 # *** Proxy pool class *** #
 
