@@ -407,7 +407,7 @@ def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3,fa
     else:
         return None
 
-def scrape_NBA_scores(proxypool,start_year=2023,sleep_seconds=0.5):
+def scrape_NBA_scores(proxypool,period=None,start_year=2023,sleep_seconds=0.5):
     """
     Scraper to pull data on live NBA odds from stats.nba.com
 
@@ -416,77 +416,76 @@ def scrape_NBA_scores(proxypool,start_year=2023,sleep_seconds=0.5):
     param: sleep_seconds: number of seconds to wait in between api queries
     """
 
-    curr_date = pd.Timestamp.today()
-    curr_year = curr_date.year
-    curr_month = curr_date.month
+    if period is None:
+        period = pd.Timestamp.now().to_period('M')
 
-    if curr_month < 10:
-        end_year = curr_year
+    if period.month < 10:
+        season = f'{period.year-1}-{str(period.year)[-2:]}'
     else:
-        end_year = curr_year + 1
+        season = f'{period.year}-{str(period.year+1)[-2:]}'
 
-    seasons = [f'{year}-{str(year+1)[-2:]}' for year in np.arange(start_year,end_year)]
-
-    periods = ['Pre Season', 'Regular Season', 'Playoffs']
+    season_periods = ['Pre Season', 'Regular Season', 'Playoffs']
 
     score_df_list = []
 
-    for season in seasons:
 
-        for period in periods:
+    for season_period in season_periods:
 
-            print(season,period,flush=True)
+        print(season,season_period,flush=True)
 
-            params = {'DateFrom': '',
-                      'DateTo': '',
-                      'GameSegment': '',
-                      'LastNGames': 0,
-                      'LeagueID': '00',
-                      'Location': '',
-                      'MeasureType': 'Base',
-                      'Month': 0,
-                      'OppTeamID': 0,
-                      'Outcome': '',
-                      'PORound': 0,
-                      'PerMode': 'Totals',
-                      'Period': 0,
-                      'PlayerID': '',
-                      'SeasonSegment': '',
-                      'SeasonType': period,
-                      'Season': season,
-                      'ShotClockRange': '',
-                      'TeamID': '',
-                      'VsConference': '',
-                      'VsDivision': ''}
+        params = {'DateFrom': '',
+                  'DateTo': '',
+                  'GameSegment': '',
+                  'LastNGames': 0,
+                  'LeagueID': '00',
+                  'Location': '',
+                  'MeasureType': 'Base',
+                  'Month': 0,
+                  'OppTeamID': 0,
+                  'Outcome': '',
+                  'PORound': 0,
+                  'PerMode': 'Totals',
+                  'Period': 0,
+                  'PlayerID': '',
+                  'SeasonSegment': '',
+                  'SeasonType': season_period,
+                  'Season': season,
+                  'ShotClockRange': '',
+                  'TeamID': '',
+                  'VsConference': '',
+                  'VsDivision': ''}
 
-            headers = {'Accept': '*/*',
-                       'Accept-Encoding': 'gzip, deflate, br',
-                       'Accept-Language': 'en-US,en;q=0.9',
-                       'Host': 'stats.nba.com',
-                       'Origin': 'https://www.nba.com',
-                       'Referer': 'https://www.nba.com/',
-                       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
-                      }
+        headers = {'Accept': '*/*',
+                   'Accept-Encoding': 'gzip, deflate, br',
+                   'Accept-Language': 'en-US,en;q=0.9',
+                   'Host': 'stats.nba.com',
+                   'Origin': 'https://www.nba.com',
+                   'Referer': 'https://www.nba.com/',
+                   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
+                  }
 
-            res = requests.get('https://stats.nba.com/stats/teamgamelogs',headers=headers,params=params,proxies=proxypool.random_proxy())
-            time.sleep(sleep_seconds)
+        res = requests.get('https://stats.nba.com/stats/teamgamelogs',headers=headers,params=params,proxies=proxypool.random_proxy())
+        time.sleep(sleep_seconds)
 
-            results_dict = res.json()
+        results_dict = res.json()
 
-            if len(results_dict['resultSets'][0]['rowSet']) > 0:
+        if len(results_dict['resultSets'][0]['rowSet']) > 0:
 
-                score_df_list.append(extract_NBA_scores(results_dict))
+            score_df_list.append(extract_NBA_scores(results_dict))
 
-    score_df = pd.concat(score_df_list).reset_index(drop=True)
+    score_df = pd.concat(score_df_list)
+    m = (score_df['game_date'].dt.year == period.year)&(score_df['game_date'].dt.month == period.month)
 
-    return(score_df)
+    if np.sum(m) > 0:
+        score_df = score_df[m].reset_index(drop=True)
+        return score_df
+    else:
+        return None
 
 def extract_NBA_scores(results_dict):
 
     """
     Helper function to process game score information scraped from stats.nba.com
-
-    param:
     """
 
     df = pd.DataFrame(results_dict['resultSets'][0]['rowSet'],columns=results_dict['resultSets'][0]['headers'])
@@ -580,4 +579,143 @@ def scrape_NCAAMB_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3
             return None
 
     else:
+        return None
+
+def scrape_NCAAMB_scores(proxypool,period=None,failure_limit=5,sleep_seconds=0.2):
+    """
+    param: proxypool: pool of proxies to route requests through
+    period: pandas.Period object corresponding to month for which to scrape scores (e.g., 2024-10)
+    param: failure_limit: number of times to reattempt scraping if initial request fails
+    param: sleep_seconds: number of seconds to wait in between api queries
+    """
+    if period is None:
+        today_date = pd.Timestamp.now()
+        year = today_date.year
+        month = today_date.month
+        period = pd.Period(freq='M',year=year,month=month)
+
+    start_date = period.start_time
+    end_date = min(period.end_time,pd.Timestamp.now())
+    date_range = pd.date_range(start_date,end_date,freq='D')
+
+    df_list = []
+
+    for date in date_range:
+
+        year = date.year
+        month = '{:02}'.format(date.month)
+        day = '{:02}'.format(date.day)
+
+        print(date.strftime('%Y-%m-%d'),flush=True)
+
+        url = f'https://data.ncaa.com/casablanca/scoreboard/basketball-men/d1/{year}/{month}/{day}/scoreboard.json'
+
+        headers = {'accept':'application/json, text/javascript, */*; q=0.01',
+                   'accept-encoding':'gzip, deflate, br, zstd',
+                   'accept-language':'en-US,en;q=0.9',
+                   'origin':'https://www.ncaa.com',
+                   'priority':'u=1, i',
+                   'referer':'https://www.ncaa.com/',
+                   'sec-ch-ua':'"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
+                   'sec-ch-ua-mobile':'?0',
+                   'sec-ch-ua-platform':"Windows",
+                   'sec-fetch-dest':'empty',
+                   'sec-fetch-mode':'cors',
+                   'sec-fetch-site':'same-site',
+                   'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'}
+
+
+        num_failures = 0
+
+        while num_failures < failure_limit:
+
+            try:
+                res = requests.get(url,headers=headers,proxies=proxypool.random_proxy())
+                time.sleep(sleep_seconds)
+
+                if res.ok:
+                    break
+                else:
+                    num_failures += 1
+            except:
+                num_failures +=1
+
+        try:
+            results_dict = res.json()
+            date_scores = extract_NCAAMB_scores(results_dict)
+
+            if date_scores is not None:
+
+                df_list.append(date_scores)
+
+        except:
+            pass
+
+    if len(df_list) > 0:
+
+        score_df = pd.concat(df_list).reset_index(drop=True)
+
+        if len(score_df) > 0:
+            return score_df
+        else:
+            return None
+
+    else:
+        return None
+
+def extract_NCAAMB_scores(results_dict):
+    """
+    Helper function to process game score information scraped from data.ncaa.com
+    """
+
+    game_date_list = []
+    home_team_list = []
+    away_team_list = []
+    home_abbr_list = []
+    away_abbr_list = []
+    home_score_list = []
+    away_score_list = []
+
+    if list(results_dict.items()) != [('Message','Object not found.')]:
+
+        for i in range(len(results_dict['games'])):
+
+            if results_dict['games'][i]['game']['gameState'] == 'final':
+
+                game_date_list.append(results_dict['games'][i]['game']['startDate'])
+
+                home_team_list.append(results_dict['games'][i]['game']['home']['names']['short'])
+                home_abbr_list.append(results_dict['games'][i]['game']['home']['names']['char6'])
+
+                try:
+                    home_score_list.append(int(results_dict['games'][i]['game']['home']['score']))
+                except:
+                    home_score_list.append(pd.NA)
+
+
+                away_team_list.append(results_dict['games'][i]['game']['away']['names']['short'])
+                away_abbr_list.append(results_dict['games'][i]['game']['away']['names']['char6'])
+
+                try:
+                    away_score_list.append(int(results_dict['games'][i]['game']['away']['score']))
+                except:
+                    away_score_list.append(pd.NA)
+
+
+        d = {'game_date':game_date_list,
+             'home_team':home_team_list,
+             'away_team':away_team_list,
+             'home_abbr':home_abbr_list,
+             'away_abbr':away_abbr_list,
+             'home_score':home_score_list,
+             'away_score':away_score_list}
+
+        df = pd.DataFrame(data=d)
+        df[['home_score','away_score']] = df[['home_score','away_score']].astype(int)
+        df['game_date'] = pd.to_datetime(df['game_date'])
+
+        return df
+
+    else:
+
         return None
