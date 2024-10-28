@@ -360,33 +360,38 @@ def scrape_NBA_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3,fa
                   }
 
         num_failures=0
+        success=False
 
         while num_failures < failure_limit:
 
-            res = requests.get(url,headers=headers,proxies=proxypool.random_proxy())
-            time.sleep(sleep_seconds + dist.rvs())
+            try:
+                res = requests.get(url,headers=headers,proxies=proxypool.random_proxy())
+                time.sleep(sleep_seconds + dist.rvs())
 
-            if res.ok:
-                results_dict = res.json()
-                observation_datetime = pd.Timestamp.now(tz='America/New_York')
-                success = True
-                break
-            else:
+                if res.ok:
+                    results_dict = res.json()
+                    observation_datetime = pd.Timestamp.now(tz='America/New_York')
+                    success = True
+                    break
+                else:
+                    num_failures += 1
+            except Exception as e:
+                print(e,flush=True)
                 num_failures += 1
 
+        if success:
+            if len(results_dict['games']) > 0:
 
-        if success and len(results_dict['games']) > 0:
+                current_odds_list = []
 
-            current_odds_list = []
+                for game in results_dict['games']:
 
-            for game in results_dict['games']:
+                    current_odds_list.append(extract_game_information(game))
 
-                current_odds_list.append(extract_game_information(game))
+                current_odds = pd.concat(current_odds_list)
+                current_odds.insert(0, 'observation_datetime', observation_datetime)
 
-            current_odds = pd.concat(current_odds_list)
-            current_odds.insert(0, 'observation_datetime', observation_datetime)
-
-            result_list.append(current_odds)
+                result_list.append(current_odds)
 
     if len(result_list) > 0:
 
@@ -538,33 +543,41 @@ def scrape_NCAAMB_odds(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3
                   }
 
         num_failures=0
+        success=False
 
         while num_failures < failure_limit:
 
-            res = requests.get(url,headers=headers,proxies=proxypool.random_proxy())
-            time.sleep(sleep_seconds + dist.rvs())
+            try:
 
-            if res.ok:
-                results_dict = res.json()
-                observation_datetime = pd.Timestamp.now(tz='America/New_York')
-                success = True
-                break
-            else:
+                res = requests.get(url,headers=headers,proxies=proxypool.random_proxy())
+                time.sleep(sleep_seconds + dist.rvs())
+
+                if res.ok:
+                    results_dict = res.json()
+                    observation_datetime = pd.Timestamp.now(tz='America/New_York')
+                    success = True
+                    break
+                else:
+                    num_failures += 1
+            except Exception as e:
+                print(e,flush=True)
                 num_failures += 1
 
 
-        if success and len(results_dict['games']) > 0:
+        if success:
 
-            current_odds_list = []
+            if len(results_dict['games']) > 0:
 
-            for game in results_dict['games']:
+                current_odds_list = []
 
-                current_odds_list.append(extract_game_information(game))
+                for game in results_dict['games']:
 
-            current_odds = pd.concat(current_odds_list)
-            current_odds.insert(0, 'observation_datetime', observation_datetime)
+                    current_odds_list.append(extract_game_information(game))
 
-            result_list.append(current_odds)
+                current_odds = pd.concat(current_odds_list)
+                current_odds.insert(0, 'observation_datetime', observation_datetime)
+
+                result_list.append(current_odds)
 
     if len(result_list) > 0:
 
