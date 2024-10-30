@@ -36,6 +36,9 @@ for league in leagues:
         odds_df['moneyline_home_odds'] = odds_df['moneyline_home_odds'].apply(sbs.convert_american_to_decimal)
         odds_df['moneyline_away_odds'] = odds_df['moneyline_away_odds'].apply(sbs.convert_american_to_decimal)
 
+        # Drop any rows with missing odds information
+        odds_df.dropna(subset=['moneyline_home_odds','moneyline_away_odds'],inplace=True)
+
         # Calculate odds-implied probability
         prob_df = odds_df.copy()
         prob_df[~prob_df[['moneyline_home_odds','moneyline_away_odds']].isna().any(axis=1)]

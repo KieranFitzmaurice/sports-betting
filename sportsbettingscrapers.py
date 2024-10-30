@@ -21,6 +21,7 @@ def create_folders(leagues=['NBA','NCAAMB','NCAAWB']):
 
     for league in leagues:
         folders_to_create.append(f'data/odds/{league}')
+        folders_to_create.append(f'data/outcomes/{league}')
         folders_to_create.append(f'data/prob/{league}')
         folders_to_create.append(f'data/returns/{league}')
         folders_to_create.append(f'data/scores/{league}')
@@ -61,7 +62,7 @@ def convert_decimal_to_american(decimal_odds):
 
     return(american_odds)
 
-def calculate_implied_probability(decimal_odds):
+def calculate_implied_probability(odds_data):
     """
     Calculate the implied probability of each event after removing vig using power method.
 
@@ -69,20 +70,25 @@ def calculate_implied_probability(decimal_odds):
     https://researchbank.swinburne.edu.au/file/2069085d-5d5a-4f9c-9f1c-0c52472396cb/1/PDF%20(Published%20version).pdf
     https://pdfs.semanticscholar.org/713d/3cb2e10dec3183ea5feced45bb11097fe702.pdf
 
-    param: decimal_odds: numpy array of decimal odds.
-    param: p: implied probability after removing vig.
+    param: odds_data: numpy array of decimal odds. Each row corresponds to a game, and each column corresponds to a team.
+    param: p: implied probability after removing vig using power method.
     """
 
-    p_book = 1/decimal_odds
+    p = np.zeros(odds_data.shape)
 
-    f = lambda k: 1 - np.sum(np.power(p_book,k[:,np.newaxis]),axis=1)
+    for i,decimal_odds in enumerate(odds_data):
 
-    k_guess = np.ones(p_book.shape[0])
+        p_book = 1/decimal_odds
 
-    res = so.root(f,k_guess)
-    k = res.x
+        f = lambda k: 1 - np.sum(p_book**k)
+        fprime = lambda k: -1*np.sum(p_book**k*np.log(p_book))
+        fprime2 = lambda k: -1*np.sum(p_book**k*np.log(p_book)**2)
 
-    p = np.power(p_book,k[:,np.newaxis])
+        # Numerically solve for k using Newton's method
+        k_guess = 1.0
+        k = so.newton(f,k_guess,fprime=fprime,fprime2=fprime2)
+
+        p[i,:] = p_book**k
 
     return(p)
 
