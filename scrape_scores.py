@@ -12,20 +12,24 @@ sbs.create_folders()
 proxy_list_path = os.path.join(pwd,'proxies','proxy_list.txt')
 proxypool = sbs.ProxyPool(proxy_list_path)
 
-# Get current year and month
-period = pd.Timestamp.now().to_period('M')
-period_str = period.strftime('%Y-%m')
+# Get current and last monthly periods
+current_period = pd.Timestamp.now().to_period('M')
+last_period = current_period-1
 
-# *** Pull latest NBA game scores *** #
-nba_scores_df = sbs.scrape_NBA_scores(proxypool,period=period)
+for period in [last_period,current_period]:
 
-if nba_scores_df is not None:
-    outname = os.path.join(pwd,'data/scores/NBA',f'{period_str}_NBA_scores.parquet')
-    nba_scores_df.to_parquet(outname)
+    period_str = period.strftime('%Y-%m')
 
-#*** Pull latest NCAAMB game scores *** #
-ncaamb_scores_df = sbs.scrape_NCAAMB_scores(proxypool,period=period)
+    # *** Pull latest data on NBA game scores *** #
+    nba_scores_df = sbs.scrape_NBA_scores(proxypool,period=period)
 
-if ncaamb_scores_df is not None:
-    outname = os.path.join(pwd,'data/scores/NCAAMB',f'{period_str}_NCAAMB_scores.parquet')
-    ncaamb_scores_df.to_parquet(outname)
+    if nba_scores_df is not None:
+        outname = os.path.join(pwd,'data/scores/NBA',f'{period_str}_NBA_scores.parquet')
+        nba_scores_df.to_parquet(outname)
+
+    #*** Pull latest data on NCAAMB game scores *** #
+    ncaamb_scores_df = sbs.scrape_NCAAMB_scores(proxypool,period=period)
+
+    if ncaamb_scores_df is not None:
+        outname = os.path.join(pwd,'data/scores/NCAAMB',f'{period_str}_NCAAMB_scores.parquet')
+        ncaamb_scores_df.to_parquet(outname)

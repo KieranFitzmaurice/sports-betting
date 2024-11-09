@@ -1,5 +1,6 @@
 certifi==2024.8.30
 charset-normalizer==3.4.0
+icalendar==6.0.1
 idna==3.10
 numpy==2.1.2
 pandas==2.2.3
