@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import sportsbettingscrapers as sbs
+import fuzzymatching as fm
 import scipy.optimize as so
 import os
 
@@ -12,6 +13,9 @@ sbs.create_folders()
 leagues = ['NBA','NCAAMB']
 
 for league in leagues:
+
+    schedule_filepath = os.path.join(pwd,f'data/schedule/{league}/{league}_schedule.parquet')
+    schedule_df = pd.read_parquet(schedule_filepath)
 
     odds_dir = os.path.join(pwd,f'data/odds/{league}')
     prob_dir = os.path.join(pwd,f'data/prob/{league}')
@@ -29,8 +33,13 @@ for league in leagues:
 
         odds_df = pd.read_parquet(odds_filepath)
 
+        # Harmonize team names used by sportsbooks with official ones used by league
+        odds_df = fm.harmonize_team_names(odds_df,schedule_df)
+
         # Since focusing on moneyline bets, can drop columns corresponding to spread/total bets
-        odds_df = odds_df.iloc[:,:11]
+        dropcols = [x for x in odds_df.columns if x.startswith('spread') or x.startswith('over') or x.startswith('under')]
+        keepcols = [x for x in odds_df.columns if x not in dropcols]
+        odds_df = odds_df[keepcols]
 
         # Convert american odds to decimal odds
         odds_df['moneyline_home_odds'] = odds_df['moneyline_home_odds'].apply(sbs.convert_american_to_decimal)
