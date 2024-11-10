@@ -24,3 +24,4 @@
 CRON_TZ=America/New_York
 */10 * * * * /home/kieran/projects/sports-betting/update_lines.sh
 32 3 * * * /home/kieran/projects/sports-betting/update_weights.sh
+0 7 * * * /home/kieran/projects/sports-betting/generate_report.sh
