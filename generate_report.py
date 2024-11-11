@@ -52,13 +52,13 @@ with open('report.txt','w') as f:
         # Check to see how often a sportsbook has odds available
         sampling_freq = 10 # Number of minutes in between scraping of odds
         samples_per_day = int(24*60/sampling_freq)
-        prob_dir = os.path.join(pwd,f'data/prob/{league}')
+        prob_dir = os.path.join(pwd,f'data/odds/{league}')
         filepaths = np.sort([os.path.join(prob_dir,x) for x in os.listdir(prob_dir) if x.startswith(yesterday_date_str)])
-        prob_df = pd.concat([pd.read_parquet(filepath) for filepath in filepaths]).reset_index(drop=True)
-        prob_df['observation_datetime'] = prob_df['observation_datetime'].dt.floor(f'{sampling_freq}min')
+        odds_df = pd.concat([pd.read_parquet(filepath) for filepath in filepaths]).reset_index(drop=True)
+        odds_df['observation_datetime'] = odds_df['observation_datetime'].dt.floor(f'{sampling_freq}min')
 
-        prob_df = prob_df[['sportsbook_name','observation_datetime']].dropna().drop_duplicates()
-        obs_count = prob_df.groupby('sportsbook_name').count()['observation_datetime']
+        odds_df = odds_df[['sportsbook_name','observation_datetime']].dropna().drop_duplicates()
+        obs_count = odds_df.groupby('sportsbook_name').count()['observation_datetime']
         obs_percent = (100*obs_count/samples_per_day).round(1)
 
         for book in obs_count.index.values:
