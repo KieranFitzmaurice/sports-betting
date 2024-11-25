@@ -12,4 +12,4 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$HOME/miniforge3/lib
 python estimate_weights.py
 export LD_LIBRARY_PATH=$OLD_LD_LIBRARY_PATH
 unset OLD_LD_LIBRARY_PATH
-
+mamba deactivate
