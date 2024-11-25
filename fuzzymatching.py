@@ -130,7 +130,8 @@ def harmonize_team_names(odds_df,schedule_df,max_hours_difference=1.5):
 
     # Harmonize start times in case there's slight disagreement between books
     # by taking most commonly reported start time for each game
-    start_times = odds_df[['game_date','home_team','away_team','game_datetime']].groupby(['game_date','home_team','away_team']).agg(pd.Series.mode)
+    mode_func = lambda x: pd.Series.mode(x)[0]
+    start_times = odds_df[['game_date','home_team','away_team','game_datetime']].groupby(['game_date','home_team','away_team']).agg(mode_func)
 
     odds_df['game_datetime'] = odds_df.apply(lambda x: start_times.loc[x['game_date'],x['home_team'],x['away_team']]['game_datetime'],axis=1)
     odds_df['game_date'] = pd.to_datetime(odds_df['game_datetime'].dt.date)
