@@ -73,8 +73,14 @@ with open('report.txt','w') as f:
         delta_t_str = strfdelta(delta_t,'{days} days {hours}h:{minutes}m:{seconds}s')
         f.write(f'\nTime since last update of scores: {delta_t_str}\n')
 
-        # Check to see that on schedule was recently updated
+        # Check to see that schedule was recently updated
         dir = os.path.join(pwd,f'data/schedule/{league}')
         delta_t = time_since_last_modification(dir)
         delta_t_str = strfdelta(delta_t,'{days} days {hours}h:{minutes}m:{seconds}s')
         f.write(f'Time since last update of schedule: {delta_t_str}\n')
+
+        # Check to see that combination weights were recently updated
+        dir = os.path.join(pwd,f'data/weights/{league}')
+        delta_t = time_since_last_modification(dir)
+        delta_t_str = strfdelta(delta_t,'{days} days {hours}h:{minutes}m:{seconds}s')
+        f.write(f'Time since last update of weights: {delta_t_str}\n')

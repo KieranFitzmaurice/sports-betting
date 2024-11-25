@@ -66,7 +66,7 @@ def match_team_names(games1,games2,max_distance=0.67):
 
     match_df = pd.DataFrame(matches,columns=potential_matches.columns)
     match_df = match_df[['home1','home2','away1','away2','distance']]
-  
+
     max_distance_criteria = (match_df['distance'] <= max_distance)
     unmatch_df = match_df[~max_distance_criteria]
     match_df = match_df[max_distance_criteria]
@@ -116,7 +116,7 @@ def harmonize_team_names(odds_df,schedule_df,max_hours_difference=1.5):
             if len(unmatch_df) > 0:
                 unmatch_df = unmatch_df[['home1','away1']].rename(columns={'home1':'home_team','away1':'away_team'})
                 unmatch_df['sportsbook_id'] = book_id
-                unmatch_df['game_datetime'] = datetime            
+                unmatch_df['game_datetime'] = datetime
                 bad_match_indices += pd.merge(odds_df[unmatch_df.columns].reset_index(),unmatch_df,how='inner',on=list(unmatch_df.columns))['index'].to_list()
 
             # Convert sportsbook team names to official team names used by league
@@ -129,12 +129,10 @@ def harmonize_team_names(odds_df,schedule_df,max_hours_difference=1.5):
     odds_df = odds_df[~odds_df.index.isin(bad_match_indices)].reset_index(drop=True)
 
     # Harmonize start times in case there's slight disagreement between books
-    # by taking most commonly reported start time for each game 
+    # by taking most commonly reported start time for each game
     start_times = odds_df[['game_date','home_team','away_team','game_datetime']].groupby(['game_date','home_team','away_team']).agg(pd.Series.mode)
-    
+
     odds_df['game_datetime'] = odds_df.apply(lambda x: start_times.loc[x['game_date'],x['home_team'],x['away_team']]['game_datetime'],axis=1)
     odds_df['game_date'] = pd.to_datetime(odds_df['game_datetime'].dt.date)
-    
+
     return(odds_df)
-
-
