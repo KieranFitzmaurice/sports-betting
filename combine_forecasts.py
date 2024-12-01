@@ -232,15 +232,21 @@ for league in leagues:
         roi_df_list.append(game_roi_df)
 
         # Also save info as JSON file that can be passed to dashboard app
-        game_dict = {}
-        game_dict['game_datetime'] = home_df['game_datetime'].dt.tz_convert('UTC').iloc[0].isoformat()
-        game_dict['observation_datetime'] = home_df['observation_datetime'].dt.tz_convert('UTC').iloc[0].isoformat()
+        game_dict = {'game_id':''}
+        game_datetime_utc = home_df['game_datetime'].dt.tz_convert('UTC').iloc[0]
+        observation_datetime_utc = home_df['observation_datetime'].dt.tz_convert('UTC').iloc[0]
+        game_dict['game_datetime'] = game_datetime_utc.isoformat()
+        game_dict['observation_datetime'] = observation_datetime_utc.isoformat()
         game_dict['league'] = league
         game_dict['home_team'] = home_df['side'].iloc[0]
         game_dict['away_team'] = away_df['side'].iloc[0]
         game_dict['home_win_prob'] = f_bar
         game_dict['away_win_prob'] = 1 - f_bar
 
+        # Create unique identifier for each game that includes UTC date and league
+        game_dict['game_id'] = f'{league} ' + game_datetime_utc.strftime('%Y-%m-%d ') + game_dict['away_team'] + ' @ ' + game_dict['home_team']
+
+        # Add available betting lines for game
         game_dict['lines'] = game_roi_df[['sportsbook','side','odds','hit_prob','EROI']].to_dict(orient='records')
         roi_json_data.append(game_dict)
 
