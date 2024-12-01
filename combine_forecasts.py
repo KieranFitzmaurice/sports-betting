@@ -233,9 +233,8 @@ for league in leagues:
 
         # Also save info as JSON file that can be passed to dashboard app
         game_dict = {}
-        game_dict['game_id'] = game_id
-        game_dict['game_datetime'] = home_df['game_datetime'].iloc[0].isoformat()
-        game_dict['observation_datetime'] = home_df['observation_datetime'].iloc[0].isoformat()
+        game_dict['game_datetime'] = home_df['game_datetime'].dt.tz_convert('UTC').iloc[0].isoformat()
+        game_dict['observation_datetime'] = home_df['observation_datetime'].dt.tz_convert('UTC').iloc[0].isoformat()
         game_dict['league'] = league
         game_dict['home_team'] = home_df['side'].iloc[0]
         game_dict['away_team'] = away_df['side'].iloc[0]
