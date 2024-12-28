@@ -99,8 +99,6 @@ def harmonize_team_names(odds_df,schedule_df,max_hours_difference=1.5):
         # Game dates and team names from official league site
         league_games = schedule_df[['game_datetime','home_team','away_team']].drop_duplicates().reset_index(drop=True)
 
-        name_df_list = []
-
         for datetime in book_games['game_datetime'].unique():
 
             # Get games occurring on specified date
@@ -131,9 +129,10 @@ def harmonize_team_names(odds_df,schedule_df,max_hours_difference=1.5):
     # Harmonize start times in case there's slight disagreement between books
     # by taking most commonly reported start time for each game
     mode_func = lambda x: pd.Series.mode(x)[0]
-    start_times = odds_df[['game_date','home_team','away_team','game_datetime']].groupby(['game_date','home_team','away_team']).agg(mode_func)
+    start_times = odds_df[['game_date','home_team','away_team','game_datetime']].groupby(['game_date','home_team','away_team']).agg(mode_func).reset_index()
 
-    odds_df['game_datetime'] = odds_df.apply(lambda x: start_times.loc[x['game_date'],x['home_team'],x['away_team']]['game_datetime'],axis=1)
+    odds_df.drop(columns=['game_datetime'],inplace=True)
+    odds_df = pd.merge(odds_df,start_times,on=['game_date','home_team','away_team'],how='left')
     odds_df['game_date'] = pd.to_datetime(odds_df['game_datetime'].dt.date)
 
     return(odds_df)
