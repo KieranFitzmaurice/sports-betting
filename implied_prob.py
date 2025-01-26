@@ -41,12 +41,12 @@ for league in leagues:
         keepcols = [x for x in odds_df.columns if x not in dropcols]
         odds_df = odds_df[keepcols]
 
+        # Drop any rows with missing odds information
+        odds_df.dropna(subset=['moneyline_home_odds','moneyline_away_odds'],inplace=True)
+
         # Convert american odds to decimal odds
         odds_df['moneyline_home_odds'] = odds_df['moneyline_home_odds'].apply(sbs.convert_american_to_decimal)
         odds_df['moneyline_away_odds'] = odds_df['moneyline_away_odds'].apply(sbs.convert_american_to_decimal)
-
-        # Drop any rows with missing odds information
-        odds_df.dropna(subset=['moneyline_home_odds','moneyline_away_odds'],inplace=True)
 
         # Calculate odds-implied probability
         prob_df = odds_df.copy()
