@@ -79,7 +79,7 @@ def estimate_combination_weights(v,f,y,draws=2500,tune=1000,n_cores=1):
     param: y: Observed post-game outcomes where a value of 1 denotes a home win (vector of length n)
     param: draws: number of samples to draw from posterior
     param: tune: number of samples to discard from start of chain during burn-in
-    param: n_cores: number of available CPU cores 
+    param: n_cores: number of available CPU cores
 
     returns: w_post: posterior distribution of combination weights (n_draws x m array)
     """
@@ -116,6 +116,11 @@ pwd = os.getcwd()
 # Specify leagues
 leagues = ['NBA','NCAAMB']
 
+# Specify number of months to look back for recent game outcomes for each league
+# (do this to limit the amount of data we need to read in)
+# Note that this period will be shorter for college leagues which play way more games
+lookback_months = [12,3]
+
 # Specify sportsbooks to use as "forecasts" when calculating probability of game outcomes
 sportsbooks = ['Bet365 NC','BetMGM NJ','Caesars NC','DraftKings NC','ESPNBet NC','FanDuel NC','Pinnacle']
 
@@ -125,16 +130,16 @@ tmin=0
 tmax=24
 increment=4
 
-for league in leagues:
+for i,league in enumerate(leagues):
+
+    lookback_period = lookback_months[i]
 
     # Read in data on past forecasts and game outcomes
     outcome_dir = os.path.join(pwd,f'data/outcomes/{league}')
-    outcome_df_list = []
+    outcome_filepaths = [os.path.join(outcome_dir,x) for x in np.sort(os.listdir(outcome_dir))]
+    outcome_filepaths = outcome_filepaths[-lookback_period:]
 
-    for f in os.listdir(outcome_dir):
-        outcome_df_list.append(pd.read_parquet(os.path.join(outcome_dir,f)))
-
-    outcome_df = pd.concat(outcome_df_list).reset_index(drop=True)
+    outcome_df = pd.concat(pd.read_parquet(f) for f in outcome_filepaths).reset_index(drop=True)
 
     # Calculate model combination weights for each pre-game time interval
     weights_df_list = []
