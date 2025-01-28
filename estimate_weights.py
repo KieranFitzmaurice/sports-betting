@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import pymc as pm
+import gc
 import os
 
 ### *** FUNCTIONS *** ###
@@ -130,6 +131,9 @@ tmin=0
 tmax=24
 increment=4
 
+# Specify number of N most recent games to include in estimation
+n_games=1000
+
 for i,league in enumerate(leagues):
 
     lookback_period = lookback_months[i]
@@ -141,6 +145,13 @@ for i,league in enumerate(leagues):
 
     outcome_df = pd.concat(pd.read_parquet(f) for f in outcome_filepaths).reset_index(drop=True)
 
+    # Get N most recent games
+    recent_games = outcome_df[['game_date','home_team','away_team']].drop_duplicates().sort_values(by='game_date').reset_index(drop=True)
+    cutoff_date = recent_games.iloc[-n_games:]['game_date'].min()
+    outcome_df = outcome_df[outcome_df['game_date'] >= cutoff_date]
+
+    gc.collect()
+
     # Calculate model combination weights for each pre-game time interval
     weights_df_list = []
 
@@ -151,7 +162,7 @@ for i,league in enumerate(leagues):
         hours_before = (t_lower,t_upper)
 
         # Estimate combination weights
-        v,f,y,included_books = preprocess_outcome_data(outcome_df,hours_before=hours_before,sportsbooks=sportsbooks)
+        v,f,y,included_books = preprocess_outcome_data(outcome_df,hours_before=hours_before,n_games=n_games,sportsbooks=sportsbooks)
         w_post = estimate_combination_weights(v,f,y)
 
         # Add to list of weight dataframes
@@ -163,6 +174,8 @@ for i,league in enumerate(leagues):
         # Print update
         print(f'*** {league}: {t_lower}-{t_upper} hours before ***\n')
         print(w_post_df.mean().sort_values(ascending=False),'\n')
+
+        gc.collect()
 
     # Concatenate dataframes for each time interval
     weights_df = pd.concat(weights_df_list).fillna(0)
