@@ -115,12 +115,12 @@ def estimate_combination_weights(v,f,y,draws=2500,tune=1000,n_cores=1):
 pwd = os.getcwd()
 
 # Specify leagues
-leagues = ['NBA','NCAAMB']
+leagues = ['NCAAMB','NBA']
 
 # Specify number of months to look back for recent game outcomes for each league
 # (do this to limit the amount of data we need to read in)
 # Note that this period will be shorter for college leagues which play way more games
-lookback_months = [12,3]
+lookback_months = [3,12]
 
 # Specify sportsbooks to use as "forecasts" when calculating probability of game outcomes
 sportsbooks = ['Bet365 NC','BetMGM NJ','Caesars NC','DraftKings NC','ESPNBet NC','FanDuel NC','Pinnacle']
@@ -184,3 +184,10 @@ for i,league in enumerate(leagues):
     date_str = pd.Timestamp.now().strftime('%Y-%m-%d')
     outname = os.path.join(pwd,f'data/weights/{league}/{date_str}_{league}_weights.parquet')
     weights_df.to_parquet(outname)
+
+    # Free up memory
+    del outcome_df
+    del w_post_df
+    del weights_df_list
+    del weights_df
+    gc.collect()
