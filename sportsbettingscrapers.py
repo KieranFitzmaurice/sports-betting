@@ -11,7 +11,7 @@ import os
 
 # *** Initial setup *** #
 
-def create_folders(leagues=['NBA','NCAAMB','NCAAWB']):
+def create_folders(leagues=['NBA','NCAAMB','NCAAWB','MLB']):
     """
     Function to create directory structure for scraped data on game odds and outcomes
 
@@ -326,7 +326,7 @@ def generate_random_string(length=32):
     alphabet = np.array(list(string.digits + string.ascii_uppercase + string.ascii_lowercase))
     n=len(alphabet)
     random_string = ''.join(alphabet[stats.randint(0,n).rvs(length)])
-    
+
     return(random_string)
 
 def parse_pinnacle(matchups_results_dict,markets_results_dict):
@@ -334,13 +334,13 @@ def parse_pinnacle(matchups_results_dict,markets_results_dict):
     param: matchups_results_dict: dictionary of matchup information (e.g., team names, start time) for specific event
     param: markets_results_dict: dictoinary of betting line information for specific event
     """
-    
+
     # Get information on matchup IDs, which we can use to join betting lines to specific games
     matchups_list = [x for x in matchups_results_dict if x['type']=='matchup']
     matchup_ids = [x['id'] for x in matchups_list]
     markets_list = [x for x in markets_results_dict if x['matchupId'] in matchup_ids and not x['isAlternate']]
     markets_list = [x for x in markets_list if x['period']==0]
-    
+
     # Create dataframe where each row corresponds to a given game
     matchup_id_list = []
     game_datetime_list = []
@@ -384,12 +384,12 @@ def parse_pinnacle(matchups_results_dict,markets_results_dict):
 
     # Now use matchup ID field to attach betting line information
     odds_df.set_index('matchup_id',inplace=True)
-    
+
     for market in markets_list:
-    
+
         index = market['matchupId']
         bet_type = market['type']
-        
+
         if bet_type == 'moneyline':
 
             if (market['prices'][0]['designation']=='home'):
@@ -423,19 +423,59 @@ def parse_pinnacle(matchups_results_dict,markets_results_dict):
                 odds_df.loc[index,'over_odds'] = market['prices'][1]['price']
                 odds_df.loc[index,'under_value'] = market['prices'][0]['points']
                 odds_df.loc[index,'under_odds'] = market['prices'][0]['price']
-                
+
     odds_df = odds_df.reset_index(drop=True)
-    
+
     return(odds_df)
 
-# *** National Baseketball Association (NBA) *** #
+# *** Web scraping functions to pull live odds from various sportsbooks *** ###
 
-def scrape_NBA_odds_actionnetwork(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3,failure_limit=5):
+def get_actionnetwork_url(league,query_date):
+    """
+    param: league: name of sports league to scrape data for (e.g., 'NBA')
+    param: query_date: date of games for which to scrape live odds
+    """
+
+    if league == 'NBA':
+        url = f'https://api.actionnetwork.com/web/v2/scoreboard/nba?bookIds=15,30,2889,3120,3118,2890,2888,2887,2891,75,123&date={query_date}&periods=event'
+    elif league == 'NCAAMB':
+        url = f'https://api.actionnetwork.com/web/v2/scoreboard/ncaab?bookIds=15,30,2889,3120,3118,2890,2888,2887,2891,75,123&division=D1&date={query_date}&tournament=0&periods=event'
+    elif league == 'NCAAWB':
+        url = f'https://api.actionnetwork.com/web/v2/scoreboard/ncaaw?bookIds=15,30,2889,3120,3118,2890,2888,2887,2891,79,75,123&date={query_date}&division=D1&periods=event&tournament=0'
+    elif league == 'MLB':
+        url = f'https://api.actionnetwork.com/web/v2/scoreboard/mlb?bookIds=15,30,2889,3120,3118,2890,2888,2887,2891,75,123&date={query_date}&periods=event'
+    else:
+        url = None
+
+    return(url)
+
+def get_pinnacle_url(league):
+    """
+    param: league: name of sports league to scrape data for (e.g., 'NBA')
+    """
+
+    if league == 'NBA':
+        matchups_url = 'https://guest.api.arcadia.pinnacle.com/0.1/leagues/487/matchups?brandId=0'
+        markets_url = 'https://guest.api.arcadia.pinnacle.com/0.1/leagues/487/markets/straight'
+    elif league == 'NCAAMB':
+        matchups_url = 'https://guest.api.arcadia.pinnacle.com/0.1/leagues/493/matchups?brandId=0'
+        markets_url = 'https://guest.api.arcadia.pinnacle.com/0.1/leagues/493/markets/straight'
+    elif league == 'MLB':
+        matchups_url = 'https://guest.api.arcadia.pinnacle.com/0.1/leagues/246/matchups?brandId=0'
+        markets_url = 'https://guest.api.arcadia.pinnacle.com/0.1/leagues/246/markets/straight'
+    else:
+        matchups_url = None
+        markets_url = None
+
+    return(matchups_url,markets_url)
+
+def scrape_odds_actionnetwork(proxypool,league,sleep_seconds=0.1,random_pause=0.1,days_ahead=3,failure_limit=5):
 
     """
-    Scraper to pull data on live NBA odds from ActionNetwork
+    Scraper to pull data on live odds from ActionNetwork
 
     param: proxypool: pool of proxies to route requests through
+    param: league: name of sports league to pull odds for
     param: sleep_seconds: number of seconds to wait in between api queries
     param: random_pause: total seconds between queries = sleep_seconds + uniform[0,random_pause]
     param: days_ahead: number of days in advance to check for newly released odds
@@ -452,7 +492,7 @@ def scrape_NBA_odds_actionnetwork(proxypool,sleep_seconds=0.1,random_pause=0.1,d
 
     for query_date in query_dates:
 
-        url = f'https://api.actionnetwork.com/web/v2/scoreboard/nba?bookIds=15,30,2889,3120,3118,2890,2888,2887,2891,75,123&date={query_date}&periods=event'
+        url = get_actionnetwork_url(league,query_date)
 
         headers = {'Accept': '*/*',
                    'Accept-Encoding': 'gzip, deflate, br',
@@ -502,13 +542,14 @@ def scrape_NBA_odds_actionnetwork(proxypool,sleep_seconds=0.1,random_pause=0.1,d
 
     else:
         return None
-    
-def scrape_NBA_odds_pinnacle(proxypool,sleep_seconds=0.1,random_pause=0.1,failure_limit=10):
+
+def scrape_odds_pinnacle(proxypool,league,sleep_seconds=0.1,random_pause=0.1,failure_limit=10):
 
     """
-    Scraper to pull data on live NBA odds from pinnacle.com
+    Scraper to pull data on live MLB odds from pinnacle.com
 
     param: proxypool: pool of proxies to route requests through
+    param: league: name of sports league to pull odds for
     param: sleep_seconds: number of seconds to wait in between api queries
     param: random_pause: total seconds between queries = sleep_seconds + uniform[0,random_pause]
     param: failure_limit: number of times to reattempt scraping if initial request fails
@@ -516,8 +557,7 @@ def scrape_NBA_odds_pinnacle(proxypool,sleep_seconds=0.1,random_pause=0.1,failur
 
     dist = stats.uniform(0,random_pause)
 
-    matchups_url = 'https://guest.api.arcadia.pinnacle.com/0.1/leagues/487/matchups?brandId=0'
-    markets_url = 'https://guest.api.arcadia.pinnacle.com/0.1/leagues/487/markets/straight'
+    matchups_url,markets_url = get_pinnacle_url(league)
 
     headers = {'accept':'application/json',
                'content-type':'application/json',
@@ -531,7 +571,7 @@ def scrape_NBA_odds_pinnacle(proxypool,sleep_seconds=0.1,random_pause=0.1,failur
 
     # Scrape matchups information
     while num_failures < failure_limit:
-        try: 
+        try:
             res = requests.get(url=matchups_url,headers=headers,proxies=proxypool.random_proxy())
             time.sleep(sleep_seconds + dist.rvs())
 
@@ -560,46 +600,48 @@ def scrape_NBA_odds_pinnacle(proxypool,sleep_seconds=0.1,random_pause=0.1,failur
         except Exception as e:
             print(e,flush=True)
             num_failures += 1
-        
+
     # Organize information into dataframe
     try:
         odds_df = parse_pinnacle(matchups_results_dict,markets_results_dict)
         return odds_df
     except:
         return None
-    
-def scrape_NBA_odds(proxypool):
+
+def scrape_live_odds(proxypool,league,days_ahead=3):
     """
-    Scraper to pull data on live NBA odds from various sportsbooks
+    Scraper to pull data on live betting odds from various sportsbooks
 
     param: proxypool: pool of proxies to route requests through
     """
-    
+
     odds_df_list = []
-    
+
     # Scrape actionnetwork.com
-    odds_df_list.append(scrape_NBA_odds_actionnetwork(proxypool))
-    
+    odds_df_list.append(scrape_odds_actionnetwork(proxypool,league,days_ahead=3))
+
     # Scrape pinnacle.com
-    odds_df_list.append(scrape_NBA_odds_pinnacle(proxypool))
-    
-    # Concatenate results 
+    odds_df_list.append(scrape_odds_pinnacle(proxypool,league))
+
+    # Concatenate results
     odds_df_list = [x for x in odds_df_list if x is not None and len(x) > 0]
-    
+
     if len(odds_df_list) > 0:
         odds_df = pd.concat(odds_df_list)
-        
+
         # Drop games that have already started
         odds_df = odds_df[odds_df['game_datetime'] > odds_df['observation_datetime']]
-        
+
         if len(odds_df) > 0:
             odds_df = odds_df.sort_values(by=['game_date','home_team','sportsbook_name']).reset_index(drop=True)
             return odds_df
         else:
             return None
-    
+
     else:
         return None
+
+# *** National Baseketball Association (NBA) scores and schedule data *** #
 
 def scrape_NBA_scores(proxypool,period=None,start_year=2023,sleep_seconds=0.5):
     """
@@ -701,9 +743,9 @@ def extract_NBA_scores(results_dict):
 
 def scrape_NBA_schedule(proxypool):
     """
-    param: proxypool: pool of proxies to route requests through 
+    param: proxypool: pool of proxies to route requests through
     """
-    
+
     url = 'https://ics.ecal.com/ecal-sub/672e7abcc2eaa20008cc96e3/NBA.ics'
     res = requests.get(url,proxies=proxypool.random_proxy())
     cal = icalendar.Calendar.from_ical(res.content)
@@ -739,191 +781,11 @@ def scrape_NBA_schedule(proxypool):
     df = pd.DataFrame(data=d)
     df['game_date'] = pd.to_datetime(df['game_datetime'].dt.date)
     df = df.sort_values(by='game_datetime').reset_index(drop=True)
-    
+
     return(df)
 
 
-# *** NCAA Division I Mens Basketball *** #
-
-def scrape_NCAAMB_odds_actionnetwork(proxypool,sleep_seconds=0.1,random_pause=0.1,days_ahead=3,failure_limit=5):
-
-    """
-    Scraper to pull data on live NCAAMB odds from actionnetwork.com
-
-    param: proxypool: pool of proxies to route requests through
-    param: sleep_seconds: number of seconds to wait in between api queries
-    param: random_pause: total seconds between queries = sleep_seconds + uniform[0,random_pause]
-    param: days_ahead: number of days in advance to check for newly released odds
-    param: failure_limit: number of times to reattempt scraping if initial request fails
-    """
-
-    dist = stats.uniform(0,random_pause)
-
-    start_date = pd.Timestamp.now(tz='America/New_York')
-    end_date = start_date + pd.Timedelta(days=days_ahead)
-    query_dates = [x.strftime('%Y%m%d') for x in pd.date_range(start_date,end_date,freq='D')]
-
-    result_list = []
-
-    for query_date in query_dates:
-
-        url = f'https://api.actionnetwork.com/web/v2/scoreboard/ncaab?bookIds=15,30,2889,3120,3118,2890,2888,2887,2891,75,123&division=D1&date={query_date}&tournament=0&periods=event'
-
-        headers = {'Accept': '*/*',
-                   'Accept-Encoding': 'gzip, deflate, br',
-                   'Accept-Language': 'en-US,en;q=0.9',
-                   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36'
-                  }
-
-        num_failures=0
-        success=False
-
-        while num_failures < failure_limit:
-
-            try:
-
-                res = requests.get(url,headers=headers,proxies=proxypool.random_proxy())
-                time.sleep(sleep_seconds + dist.rvs())
-
-                if res.ok:
-                    results_dict = res.json()
-                    observation_datetime = pd.Timestamp.now(tz='America/New_York')
-                    success = True
-                    break
-                else:
-                    num_failures += 1
-            except Exception as e:
-                print(e,flush=True)
-                num_failures += 1
-
-
-        if success:
-
-            if len(results_dict['games']) > 0:
-
-                current_odds_list = []
-
-                for game in results_dict['games']:
-
-                    current_odds_list.append(parse_actionnetwork(game))
-
-                current_odds = pd.concat(current_odds_list)
-                current_odds.insert(0, 'observation_datetime', observation_datetime)
-
-                result_list.append(current_odds)
-
-    if len(result_list) > 0:
-
-        odds_df = pd.concat(result_list)
-
-        # Drop games that have already started
-        odds_df = odds_df[odds_df['game_datetime'] > odds_df['observation_datetime']].reset_index(drop=True)
-
-        if len(odds_df) > 0:
-            return odds_df
-        else:
-            return None
-
-    else:
-        return None
-    
-def scrape_NCAAMB_odds_pinnacle(proxypool,sleep_seconds=0.1,random_pause=0.1,failure_limit=20):
-
-    """
-    Scraper to pull data on live NCAAMB odds from pinnacle.com
-
-    param: proxypool: pool of proxies to route requests through
-    param: sleep_seconds: number of seconds to wait in between api queries
-    param: random_pause: total seconds between queries = sleep_seconds + uniform[0,random_pause]
-    param: failure_limit: number of times to reattempt scraping if initial request fails
-    """
-
-    dist = stats.uniform(0,random_pause)
-
-    matchups_url = 'https://guest.api.arcadia.pinnacle.com/0.1/leagues/493/matchups?brandId=0'
-    markets_url = 'https://guest.api.arcadia.pinnacle.com/0.1/leagues/493/markets/straight'
-
-    headers = {'accept':'application/json',
-               'content-type':'application/json',
-               'referer':'https://www.pinnacle.com/',
-               'sec-ch-ua':'"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
-               'sec-ch-ua-mobile':'?0',
-               'sec-ch-ua-platform':'"Windows"',
-               'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36'}
-
-    num_failures = 0
-
-    # Scrape matchups information
-    while num_failures < failure_limit:
-        try: 
-            res = requests.get(url=matchups_url,headers=headers,proxies=proxypool.random_proxy())
-            time.sleep(sleep_seconds + dist.rvs())
-
-            if res.ok:
-                matchups_results_dict = res.json()
-                break
-            else:
-                num_failures += 1
-        except Exception as e:
-            print(e,flush=True)
-            num_failures += 1
-
-    # Scrape betting line information
-    while num_failures < failure_limit:
-
-        try:
-            headers['x-api-key'] = generate_random_string(32)
-            res = requests.get(url=markets_url,headers=headers,proxies=proxypool.random_proxy())
-            time.sleep(sleep_seconds + dist.rvs())
-
-            if res.ok:
-                markets_results_dict = res.json()
-                break
-            else:
-                num_failures += 1
-        except Exception as e:
-            print(e,flush=True)
-            num_failures += 1
-        
-    # Organize information into dataframe
-    try:
-        odds_df = parse_pinnacle(matchups_results_dict,markets_results_dict)
-        return odds_df
-    except:
-        return None
-    
-def scrape_NCAAMB_odds(proxypool):
-    """
-    Scraper to pull data on live NCAAMB odds from various sportsbooks
-
-    param: proxypool: pool of proxies to route requests through
-    """
-    
-    odds_df_list = []
-    
-    # Scrape actionnetwork.com
-    odds_df_list.append(scrape_NCAAMB_odds_actionnetwork(proxypool))
-    
-    # Scrape pinnacle.com
-    odds_df_list.append(scrape_NCAAMB_odds_pinnacle(proxypool))
-    
-    # Concatenate results 
-    odds_df_list = [x for x in odds_df_list if x is not None and len(x) > 0]
-    
-    if len(odds_df_list) > 0:
-        odds_df = pd.concat(odds_df_list)
-        
-        # Drop games that have already started
-        odds_df = odds_df[odds_df['game_datetime'] > odds_df['observation_datetime']]
-        
-        if len(odds_df) > 0:
-            odds_df = odds_df.sort_values(by=['game_date','home_team','sportsbook_name']).reset_index(drop=True)
-            return odds_df
-        else:
-            return None
-    
-    else:
-        return None
+# *** NCAA Division I Mens Basketball scores and schedule data *** #
 
 def scrape_NCAAMB_scores(proxypool,period=None,failure_limit=5,sleep_seconds=0.2):
     """
@@ -1063,7 +925,7 @@ def extract_NCAAMB_scores(results_dict):
     else:
 
         return None
-    
+
 def scrape_NCAAMB_schedule(proxypool,days_ahead=7,failure_limit=5,sleep_seconds=0.2):
     """
     param: proxypool: pool of proxies to route requests through
@@ -1140,7 +1002,7 @@ def scrape_NCAAMB_schedule(proxypool,days_ahead=7,failure_limit=5,sleep_seconds=
 
     else:
         return None
-    
+
 def extract_NCAAMB_schedule(results_dict):
     """
     Helper function to process game score information scraped from data.ncaa.com
@@ -1149,11 +1011,11 @@ def extract_NCAAMB_schedule(results_dict):
     game_datetime_list = []
     home_team_list = []
     away_team_list = []
-    
+
     if list(results_dict.items()) != [('Message','Object not found.')]:
 
         for i in range(len(results_dict['games'])):
-            
+
             epoch_time = int(results_dict['games'][i]['game']['startTimeEpoch'])
             game_datetime = pd.to_datetime(dt.datetime.fromtimestamp(epoch_time)).tz_localize('America/New_York')
 
@@ -1175,5 +1037,3 @@ def extract_NCAAMB_schedule(results_dict):
     else:
 
         return None
-    
-
