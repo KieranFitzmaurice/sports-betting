@@ -618,7 +618,7 @@ def scrape_live_odds(proxypool,league,days_ahead=3):
     odds_df_list = []
 
     # Scrape actionnetwork.com
-    odds_df_list.append(scrape_odds_actionnetwork(proxypool,league,days_ahead=3))
+    odds_df_list.append(scrape_odds_actionnetwork(proxypool,league,days_ahead=days_ahead))
 
     # Scrape pinnacle.com
     odds_df_list.append(scrape_odds_pinnacle(proxypool,league))

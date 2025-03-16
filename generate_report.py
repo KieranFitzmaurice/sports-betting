@@ -34,7 +34,7 @@ today_date_str = today_date.strftime('%Y-%m-%d')
 yesterday_date_str = yesterday_date.strftime('%Y-%m-%d')
 
 # Specify leagues to evaluate
-leagues = ['NBA','NCAAMB']
+leagues = ['NBA','NCAAMB','MLB']
 
 with open('report.txt','w') as f:
 
