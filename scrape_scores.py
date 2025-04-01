@@ -33,3 +33,10 @@ for period in [last_period,current_period]:
     if ncaamb_scores_df is not None:
         outname = os.path.join(pwd,'data/scores/NCAAMB',f'{period_str}_NCAAMB_scores.parquet')
         ncaamb_scores_df.to_parquet(outname)
+
+    #*** Pull latest data on MLB game scores *** #
+    mlb_scores_df = sbs.scrape_MLB_scores(proxypool,period=period)
+
+    if mlb_scores_df is not None:
+        outname = os.path.join(pwd,'data/scores/MLB',f'{period_str}_MLB_scores.parquet')
+        mlb_scores_df.to_parquet(outname)

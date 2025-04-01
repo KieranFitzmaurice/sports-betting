@@ -632,6 +632,11 @@ def scrape_live_odds(proxypool,league,days_ahead=3):
         # Drop games that have already started
         odds_df = odds_df[odds_df['game_datetime'] > odds_df['observation_datetime']]
 
+        # Drop non-standard over/unders that exist for MLB
+        if league == 'MLB' and len(odds_df) > 0:
+            m = odds_df['home_team'].apply(lambda x: 'Hits+Runs+Errors' in x)
+            odds_df = odds_df[~m]
+
         if len(odds_df) > 0:
             odds_df = odds_df.sort_values(by=['game_date','home_team','sportsbook_name']).reset_index(drop=True)
             return odds_df
@@ -1031,6 +1036,114 @@ def extract_NCAAMB_schedule(results_dict):
         df = pd.DataFrame(data=d)
         df['game_date'] = pd.to_datetime(df['game_datetime'].dt.date)
         df = df.sort_values(by='game_datetime').reset_index(drop=True)
+
+        return df
+
+    else:
+
+        return None
+
+# *** Major League Baseball scores and schedule data *** #
+
+def scrape_MLB_scores(proxypool,period=None,failure_limit=5,sleep_seconds=0.2):
+    """
+    param: proxypool: pool of proxies to route requests through
+    period: pandas.Period object corresponding to month for which to scrape scores (e.g., 2024-10)
+    param: failure_limit: number of times to reattempt scraping if initial request fails
+    param: sleep_seconds: number of seconds to wait in between api queries
+    """
+    if period is None:
+        today_date = pd.Timestamp.now()
+        year = today_date.year
+        month = today_date.month
+        period = pd.Period(freq='M',year=year,month=month)
+
+    start_date = period.start_time
+    end_date = min(period.end_time,pd.Timestamp.now())
+    date_range = pd.date_range(start_date,end_date,freq='D')
+
+    df_list = []
+
+    for i,date in enumerate(date_range):
+
+        date_str = date.strftime('%Y-%m-%d')
+        url = f'https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={date_str}&endDate={date_str}&timeZone=America/New_York'
+
+
+        num_failures = 0
+
+        while num_failures < failure_limit:
+
+            try:
+                res = requests.get(url,proxies=proxypool.random_proxy())
+                time.sleep(sleep_seconds)
+
+                if res.ok:
+                    break
+                else:
+                    num_failures += 1
+            except:
+                num_failures +=1
+
+        try:
+            results_dict = res.json()
+            date_scores = extract_MLB_scores(results_dict)
+
+            if date_scores is not None:
+                df_list.append(date_scores)
+
+        except:
+            pass
+
+    if len(df_list) > 0:
+
+        score_df = pd.concat(df_list).reset_index(drop=True)
+
+        if len(score_df) > 0:
+            return score_df
+        else:
+            return None
+
+    else:
+        return None
+
+def extract_MLB_scores(results_dict):
+    """
+    Helper function to process game score information scraped from statsapi.mlb.com
+    """
+    game_date_list = []
+    home_team_list = []
+    away_team_list = []
+    home_score_list = []
+    away_score_list = []
+
+    if results_dict['totalGames'] > 0:
+
+        for date in results_dict['dates']:
+            for game in date['games']:
+
+                # Get games that have concluded.
+                # Exclude double-headers, since this can lead to annoying edge cases
+                if game['status']['abstractGameState']=='Final' and game['doubleHeader']=='N':
+
+                    game_date_list.append(game['gameDate'])
+                    home_team_list.append(game['teams']['home']['team']['name'])
+                    away_team_list.append(game['teams']['away']['team']['name'])
+                    home_score_list.append(game['teams']['home']['score'])
+                    away_score_list.append(game['teams']['away']['score'])
+
+
+        d = {'game_date':game_date_list,
+             'home_team':home_team_list,
+             'away_team':away_team_list,
+             'home_abbr':pd.NA,
+             'away_abbr':pd.NA,
+             'home_score':home_score_list,
+             'away_score':away_score_list}
+
+        df = pd.DataFrame(data=d)
+        df[['home_score','away_score']] = df[['home_score','away_score']].astype(int)
+        df['game_date'] = pd.to_datetime(df['game_date'])
 
         return df
 
