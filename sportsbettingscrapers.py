@@ -634,7 +634,9 @@ def scrape_live_odds(proxypool,league,days_ahead=3):
 
         # Drop non-standard over/unders that exist for MLB
         if league == 'MLB' and len(odds_df) > 0:
-            m = odds_df['home_team'].apply(lambda x: 'Hits+Runs+Errors' in x)
+            m1 = odds_df['home_team'].apply(lambda x: 'Hits+Runs+Errors' in x)
+            m2 = odds_df['home_team'].apply(lambda x: 'Home Runs' in x)
+            m = (m1|m2)
             odds_df = odds_df[~m]
 
         if len(odds_df) > 0:
