@@ -10,7 +10,7 @@ pwd = os.getcwd()
 # Create data folders if they don't already exist
 sbs.create_folders()
 
-leagues = ['NBA','NCAAMB']
+leagues = ['NBA','NCAAMB','MLB']
 
 for league in leagues:
 

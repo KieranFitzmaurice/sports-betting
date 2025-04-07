@@ -10,7 +10,7 @@ pwd = os.getcwd()
 sbs.create_folders()
 
 # Specify leagues to evaluate
-leagues = ['NBA','NCAAMB']
+leagues = ['NBA','NCAAMB','MLB']
 
 # Get current time and monthly period
 current_period = pd.Timestamp.now().to_period('M')

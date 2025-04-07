@@ -934,7 +934,7 @@ def extract_NCAAMB_scores(results_dict):
 def scrape_NCAAMB_schedule(proxypool,days_ahead=7,failure_limit=5,sleep_seconds=0.2):
     """
     param: proxypool: pool of proxies to route requests through
-    period: pandas.Period object corresponding to month for which to scrape scores (e.g., 2024-10)
+    days_ahead: number of days in advance to scrape schedule information
     param: failure_limit: number of times to reattempt scraping if initial request fails
     param: sleep_seconds: number of seconds to wait in between api queries
     """
@@ -1144,6 +1144,100 @@ def extract_MLB_scores(results_dict):
         df = pd.DataFrame(data=d)
         df[['home_score','away_score']] = df[['home_score','away_score']].astype(int)
         df['game_date'] = pd.to_datetime(df['game_date'])
+        df['game_date'] = pd.to_datetime(df['game_date'].dt.date)
+
+        return df
+
+    else:
+
+        return None
+
+def scrape_MLB_schedule(proxypool,days_ahead=7,failure_limit=5,sleep_seconds=0.2):
+    """
+    param: proxypool: pool of proxies to route requests through
+    period: days_ahead: number of days in advance to scrape schedule information
+    param: failure_limit: number of times to reattempt scraping if initial request fails
+    param: sleep_seconds: number of seconds to wait in between api queries
+    """
+    start_date = pd.Timestamp.now()
+    end_date = start_date + pd.Timedelta(days=days_ahead)
+    date_range = pd.date_range(start_date,end_date,freq='D')
+
+    df_list = []
+
+    for i,date in enumerate(date_range):
+
+        date_str = date.strftime('%Y-%m-%d')
+        url = f'https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={date_str}&endDate={date_str}&timeZone=America/New_York'
+
+        num_failures = 0
+
+        while num_failures < failure_limit:
+
+            try:
+                res = requests.get(url,proxies=proxypool.random_proxy())
+                time.sleep(sleep_seconds)
+
+                if res.ok:
+                    break
+                else:
+                    num_failures += 1
+            except:
+                num_failures +=1
+
+        try:
+            results_dict = res.json()
+            date_scores = extract_MLB_schedule(results_dict)
+
+            if date_scores is not None:
+                df_list.append(date_scores)
+
+        except:
+            pass
+
+    if len(df_list) > 0:
+
+        score_df = pd.concat(df_list).reset_index(drop=True)
+
+        if len(score_df) > 0:
+            return score_df
+        else:
+            return None
+
+    else:
+        return None
+
+
+def extract_MLB_schedule(results_dict):
+    """
+    Helper function to process schedule information scraped from statsapi.mlb.com
+    """
+    game_datetime_list = []
+    home_team_list = []
+    away_team_list = []
+
+    if results_dict['totalGames'] > 0:
+
+        for date in results_dict['dates']:
+            for game in date['games']:
+
+                # Get games that have not yet commenced.
+                # Exclude double-headers, since this can lead to annoying edge cases
+                if game['status']['abstractGameState']=='Preview' and game['doubleHeader']=='N':
+
+                    game_datetime_list.append(game['gameDate'])
+                    home_team_list.append(game['teams']['home']['team']['name'])
+                    away_team_list.append(game['teams']['away']['team']['name'])
+
+
+        d = {'game_datetime':game_datetime_list,
+             'game_date':pd.NA,
+             'home_team':home_team_list,
+             'away_team':away_team_list}
+
+        df = pd.DataFrame(data=d)
+        df['game_datetime'] = pd.to_datetime(df['game_datetime'])
+        df['game_date'] = pd.to_datetime(df['game_datetime'].dt.date)
 
         return df
 

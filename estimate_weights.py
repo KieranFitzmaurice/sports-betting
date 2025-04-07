@@ -115,12 +115,12 @@ def estimate_combination_weights(v,f,y,draws=2500,tune=1000,n_cores=1):
 pwd = os.getcwd()
 
 # Specify leagues
-leagues = ['NCAAMB','NBA']
+leagues = ['NBA','NCAAMB','MLB']
 
 # Specify number of months to look back for recent game outcomes for each league
 # (do this to limit the amount of data we need to read in)
 # Note that this period will be shorter for college leagues which play way more games
-lookback_months = [3,12]
+lookback_months = [12,3,12]
 
 # Specify sportsbooks to use as "forecasts" when calculating probability of game outcomes
 sportsbooks = ['Bet365 NC','BetMGM NJ','Caesars NC','DraftKings NC','ESPNBet NC','FanDuel NC','Pinnacle']

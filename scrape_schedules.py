@@ -27,3 +27,11 @@ try:
     ncaamb_schedule.to_parquet(outname)
 except:
     pass
+
+# Get updated MLB schedule
+try:
+    mlb_schedule = sbs.scrape_MLB_schedule(proxypool)
+    outname = os.path.join(pwd,'data/schedule/MLB/MLB_schedule.parquet')
+    mlb_schedule.to_parquet(outname)
+except:
+    pass
