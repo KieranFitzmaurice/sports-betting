@@ -54,18 +54,22 @@ with open('report.txt','w') as f:
         samples_per_day = int(24*60/sampling_freq)
         prob_dir = os.path.join(pwd,f'data/odds/{league}')
         filepaths = np.sort([os.path.join(prob_dir,x) for x in os.listdir(prob_dir) if x.startswith(yesterday_date_str)])
-        odds_df = pd.concat([pd.read_parquet(filepath) for filepath in filepaths]).reset_index(drop=True)
-        odds_df['observation_datetime'] = odds_df['observation_datetime'].dt.floor(f'{sampling_freq}min')
 
-        odds_df = odds_df[['sportsbook_name','observation_datetime']].dropna().drop_duplicates()
-        obs_count = odds_df.groupby('sportsbook_name').count()['observation_datetime']
-        obs_percent = (100*obs_count/samples_per_day).round(1)
+        if len(filepaths) > 0:
+            odds_df = pd.concat([pd.read_parquet(filepath) for filepath in filepaths]).reset_index(drop=True)
+            odds_df['observation_datetime'] = odds_df['observation_datetime'].dt.floor(f'{sampling_freq}min')
 
-        for book in obs_count.index.values:
-            book_string = f'    {book}:'
-            obs_string = f'{obs_count.loc[book]} / {samples_per_day} ({obs_percent.loc[book]}%)\n'.rjust(40 - len(book_string))
+            odds_df = odds_df[['sportsbook_name','observation_datetime']].dropna().drop_duplicates()
+            obs_count = odds_df.groupby('sportsbook_name').count()['observation_datetime']
+            obs_percent = (100*obs_count/samples_per_day).round(1)
 
-            f.write(book_string+obs_string)
+            for book in obs_count.index.values:
+                book_string = f'    {book}:'
+                obs_string = f'{obs_count.loc[book]} / {samples_per_day} ({obs_percent.loc[book]}%)\n'.rjust(40 - len(book_string))
+
+                f.write(book_string+obs_string)
+        else:
+            f.write(f'    (No odds data to report)\n')
 
         # Check to see that data on game scores was recently updated
         dir = os.path.join(pwd,f'data/scores/{league}')
